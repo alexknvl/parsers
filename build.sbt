@@ -51,6 +51,8 @@ lazy val common = Seq(
 )
 
 val ParsebackVersion = "0.3"
+val AttoVersion = "0.6.3"
+val ScalaParserCombinatorsVersion = "1.1.1"
 
 lazy val libBase = project.in(file("libBase"))
   .settings(name := "parsing-base")
@@ -59,7 +61,9 @@ lazy val libBase = project.in(file("libBase"))
     "org.typelevel"  %% "cats-core"      % "1.1.0",
     "org.typelevel"  %% "cats-effect"    % "0.10",
     "com.codecommit" %% "parseback-core" % ParsebackVersion,
-    "com.codecommit" %% "parseback-cats" % ParsebackVersion))
+    "com.codecommit" %% "parseback-cats" % ParsebackVersion,
+    "org.tpolecat"   %% "atto-core"      % AttoVersion,
+    "org.scala-lang.modules" %% "scala-parser-combinators" % ScalaParserCombinatorsVersion))
 
 lazy val appTest = project.in(file("appTest"))
   .settings(name := "parsing-test")
