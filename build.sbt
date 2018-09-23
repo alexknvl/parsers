@@ -43,7 +43,11 @@ lazy val common = Seq(
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   libraryDependencies += "com.lihaoyi" %% "acyclic" % "0.1.7" % "provided",
   addCompilerPlugin("com.lihaoyi" %% "acyclic" % "0.1.7"),
-  scalacOptions += "-P:acyclic:force"
+  scalacOptions += "-P:acyclic:force",
+  libraryDependencies ++= List(
+    compilerPlugin("org.scalaz" %% "scalaz-plugin"   % "0.0.6" cross CrossVersion.full),
+    "org.scalaz" %% "scalaz-plugin-library" % "0.0.6"
+  )
 )
 
 val ParsebackVersion = "0.3"

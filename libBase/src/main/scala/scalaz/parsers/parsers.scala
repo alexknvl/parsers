@@ -29,9 +29,6 @@ object parsers {
 
     def rule[A](name: String, f: F[A]): F[A]
 
-    // This should be in a subtype!
-    def end: F[Unit]
-
     def anyOf(r: SymbolSet[Symbol]): F[r.Type]
   }
 

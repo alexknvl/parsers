@@ -111,6 +111,6 @@ object parsetree {
       def anyOf(r: SymbolSet[Symbol]): F[r.Type] =
         WriterT(PG.anyOf(r).map(a => PTLeaf(a).some /\ a))
 
-      def end: F[Unit] = WriterT(PG.end.map(a => None /\ a))
+//      def end: F[Unit] = WriterT(PG.end.map(a => None /\ a))
     }
 }

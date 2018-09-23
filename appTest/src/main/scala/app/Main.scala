@@ -1,10 +1,11 @@
 package app
 
-import cats.Invariant
+import cats.{Applicative, Functor, Invariant}
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.syntax.all._
 import cats.instances.char._
+import parseback.LineStream
 import scalaz.base._
 import scalaz.parsers.cfg.{CFG, CFGP, printGraphAsBNF}
 import scalaz.parsers.reified.reify
@@ -110,14 +111,12 @@ object Main {
     lazy val term           = "term"     @: { factor.sepBy1(multiply) ^^ termIso }
     lazy val expr: F[Expr]  = "expr"     @: { term.sepBy1(plusMinus) ^^ exprIso }
 
-    val unit: F[Expr] = expr <~ end
-    unit
+    expr
   }
 
   val testSimpleAndShow: IO[Unit] = {
-
     val p = calc[Simple[Char, ?]]
-    val List(Nil /\ tree) = p.runParser("(a+12)*(3+5*x)".toList)
+    val List(tree) = p.parseAll("(a+12)*(3+5*x)")
 
     val handWritten = HandWrittenShow.expr(tree)
     val derived     = calc[Show].apply(tree)
@@ -129,7 +128,7 @@ object Main {
 
   val testParseTrees: IO[Unit] = {
     val p = calc[WithParseTree[Simple[Char, ?], Char, ?]]
-    val List(Nil /\ (Some(pt) /\ _)) = p.run.runParser("(a+12)*(3+5*x)".toList)
+    val List(Some(pt) /\ _) = p.run.parseAll("(a+12)*(3+5*x)")
     val result = parseTreeToDOT(pt, "?", (ch: Char) => escapeJava(ch.toString))
     putStrLn(result) *> putStrLn("\n")
   }
@@ -171,8 +170,7 @@ object Main {
     lazy val term           = "term"   @: { factor.sepBy1(maybeWS ~> multiply <~ maybeWS) ^^ termIso }
     lazy val expr: F[Expr]  = "expr"   @: { term.sepBy1(maybeWS ~> plusMinus <~ maybeWS) ^^ exprIso }
 
-    val unit: F[Expr] = expr <~ end
-    unit
+    expr
   }
 
   val testNormalizingSimpleAndShow: IO[Unit] = {
@@ -180,7 +178,7 @@ object Main {
     val showCalc         = normalizingCalc[Show]
 
     val p = simpleCalc
-    val List(Nil /\ tree) = p.runParser("(  a +  12) * ( 3 +5*x)".toList)
+    val List(tree) = p.parseAll("(  a +  12) * ( 3 +5*x)")
 
     val handWritten = HandWrittenShow.expr(tree)
     val derived     = showCalc(tree)
@@ -194,7 +192,7 @@ object Main {
     val simpleWithPTCalc = normalizingCalc[WithParseTree[Simple[Char, ?], Char, ?]]
 
     val p = simpleWithPTCalc
-    val List(Nil /\ (Some(pt) /\ _)) = p.run.runParser("(  a +  12) * ( 3 +5*x)".toList)
+    val List(Some(pt) /\ _) = p.run.parseAll("(  a +  12) * ( 3 +5*x)")
     val result = parseTreeToDOT(pt, "?", (ch: Char) => escapeJava(ch.toString))
     putStrLn(result) *> putStrLn("\n")
   }
@@ -210,11 +208,27 @@ object Main {
     } yield ()
   }
 
+  val testParseback: IO[Unit] = {
+    import parseback._
+    import parseback.compat.cats._
+    import scalaz.parsers.parseback._
+
+    {
+      val p = force(calc[PBWrapper])
+      val stream = LineStream[cats.Eval]("(a+12)*(3+5*x)")
+      val \/-(result) = p.apply(stream).value
+      val Some(first /\ rest) = result.uncons
+      assert(rest.isEmpty)
+      putStrLn(HandWrittenShow.expr(first))
+    }
+  }
+
   def putStrLn(s: String): IO[Unit] = IO { println(s) }
 
   def pureMain: IO[Unit] =
     testSimpleAndShow *> testParseTrees *> testBNF *>
-    testNormalizingSimpleAndShow *> testNormalizingParseTrees *> testNormalizingBNF
+    testNormalizingSimpleAndShow *> testNormalizingParseTrees *> testNormalizingBNF *>
+    testParseback
 
   def main(args: Array[String]): Unit =
     pureMain.unsafeRunSync()

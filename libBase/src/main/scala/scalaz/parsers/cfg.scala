@@ -164,7 +164,7 @@ object cfg {
         type Symbol = S
         type F[A] = CFGP[S, A]
 
-        def end: F[Unit]               = CFGP(EOF)
+//        def end: F[Unit]               = CFGP(EOF)
         def pure[A](a: A)  : F[A]      = CFGP(Seq(Nil))
         def any            : F[Symbol] = CFGP(Any)
         def sym(s: Symbol) : F[Unit]   = CFGP(Rng(s, s))

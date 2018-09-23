@@ -11,8 +11,6 @@ object Enumerable {
   // Integral is absolutely degenerate but for now it will
   // have to suffice.
   implicit val charEnum: Enumerable[Char] = new Enumerable[Char] {
-    def range(a: Char, b: Char): List[Char] = {
-      (a to b).toList
-    }
+    def range(a: Char, b: Char): List[Char] = (a to b).toList
   }
 }

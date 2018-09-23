@@ -9,6 +9,13 @@ import scalaz.parsers.symbols.SymbolSet
 object simple {
   final case class Simple[S, A](runParser: List[S] => List[(List[S], A)])
 
+  implicit class parseAll[A](val p: Simple[Char, A]) extends AnyVal {
+    def apply(p: Simple[Char, A], s: String): List[A] = parseAll(s)
+    def parseAll(s: String): List[A] = p.runParser(s.toList).collect {
+      case (Nil, a) => a
+    }
+  }
+
   object Simple {
     implicit def simpleFunctor[S]: Functor[Simple[S, ?]] = new Functor[Simple[S, ?]] {
       def map[A, B](A: Simple[S, A])(f: A => B): Simple[S, B] = Simple { s =>
@@ -62,10 +69,10 @@ object simple {
           } else Nil
         }
 
-        def end: F[Unit] = Simple { s =>
-          if (s.isEmpty) List(s /\ *)
-          else Nil
-        }
+//        def end: F[Unit] = Simple { s =>
+//          if (s.isEmpty) List(s /\ *)
+//          else Nil
+//        }
       }
   }
 }

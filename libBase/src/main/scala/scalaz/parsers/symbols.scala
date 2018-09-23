@@ -1,15 +1,15 @@
 package scalaz.parsers
 
 import cats.Order
-import cats.syntax.order._
 import cats.instances.char._
+import cats.syntax.order._
 import scalaz.base._
 
 object symbols {
   sealed abstract class SymbolSet[P] protected () {
     type Type <: P
 
-    def isValid: P => Boolean
+    def isValid(p: P): Boolean
 
     def unapply(ch: P): Option[Type] =
       if (isValid(ch)) Some(ch.asInstanceOf[Type]) else None
@@ -17,16 +17,23 @@ object symbols {
     def prism : Prism[P, Type] =
       Prism.unsafe(unapply, t => t)
 
-    def intervals(implicit E: Enumerable[P]): List[(P, P)]
+    def enumerate(implicit E: Enumerable[P]): List[Type]
+    def intervals(implicit E: Enumerable[P]): List[(Type, Type)]
   }
   object SymbolSet {
     final case class Range[P: Order](ch1: P, ch2: P) extends SymbolSet[P] {
-      val start: P = ch1 min ch2
-      val end: P   = ch1 max ch2
+      val start: Type = (ch1 min ch2).asInstanceOf[Type]
+      val end: Type   = (ch1 max ch2).asInstanceOf[Type]
 
-      def isValid = c => start <= c && c <= end
+      def isValid(c : P): Boolean =
+        (start: P) <= c && c <= (end: P)
 
-      def intervals(implicit E: Enumerable[P]) = List(start /\ end)
+      // FIXME: technically .flatMap(unapply) is identity
+      def enumerate(implicit E: Enumerable[P]): List[Type] =
+        E.range(start, end).flatMap(unapply)
+
+      def intervals(implicit E: Enumerable[P]) =
+        List(start /\ end)
     }
 
     final case class Subset[P](sup: SymbolSet[P])(pred: P => Boolean) extends SymbolSet[P] {
@@ -35,18 +42,28 @@ object symbols {
         case r@Subset(_)   => r.bounds
       }
 
-      def isValid = x => sup.isValid(x) && pred(x)
+      def isValid(x: P): Boolean =
+        sup.isValid(x) && pred(x)
 
-      def intervals(implicit E: Enumerable[P]): List[(P, P)] = {
+      def enumerate(implicit E: Enumerable[P]): List[Type] = {
         val (l, u) = bounds
-        type State = List[P /\ P] /\ Option[P /\ P]
-        E.range(l, u).foldLeft(Nil /\ None : State) {
-          case (l /\ None, p) =>
-            if (isValid(p)) l /\ Some(p /\ p)
-            else l /\ None
-          case (l /\ Some(p1 /\ p2), p3) =>
-            if (isValid(p3)) l /\ Some(p1 /\ p3)
-            else (p1 /\ p2 :: l) /\ None
+        E.range(l, u).flatMap(unapply)
+      }
+
+      def intervals(implicit E: Enumerable[P]): List[(Type, Type)] = {
+        val (start, end) = bounds
+        type State = List[Type /\ Type] /\ Option[Type /\ Type]
+        E.range(start, end).foldLeft(Nil /\ None : State) {
+          case (l /\ None, sym) =>
+            unapply(sym) match {
+              case Some(validSym) => l /\ Some(validSym /\ validSym)
+              case None => l /\ None
+            }
+          case (l /\ Some(p1 /\ p2), sym) =>
+            unapply(sym) match {
+              case Some(p3) => l /\ Some(p1 /\ p3)
+              case None => (p1 /\ p2 :: l) /\ None
+            }
         } match {
           case l /\ None    => l.reverse
           case l /\ Some(p) => (p :: l).reverse
