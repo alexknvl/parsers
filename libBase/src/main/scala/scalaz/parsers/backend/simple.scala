@@ -1,9 +1,9 @@
-package scalaz.parsers
+package scalaz.parsers.backend
 
 import cats.{Eq, Functor}
+import cats.syntax.all._
 import scalaz.base._
 import scalaz.parsers.parsers.Parsing
-import cats.syntax.eq._
 import scalaz.parsers.symbols.SymbolSet
 
 object simple {

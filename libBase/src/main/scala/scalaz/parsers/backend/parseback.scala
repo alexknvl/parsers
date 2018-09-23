@@ -1,10 +1,10 @@
-package scalaz.parsers
+package scalaz.parsers.backend
 
-import _root_.parseback.Parser
 import cats.Functor
-import scalaz.parsers.parsers.Parsing
 import scalaz.base._
+import scalaz.parsers.parsers.Parsing
 import scalaz.parsers.symbols.SymbolSet
+import _root_.parseback.Parser
 
 object parseback {
   sealed abstract class PBWrapper[A]

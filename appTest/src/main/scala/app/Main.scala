@@ -10,7 +10,7 @@ import scalaz.base._
 import scalaz.parsers.cfg.{CFG, CFGP, printGraphAsBNF}
 import scalaz.parsers.reified.reify
 import scalaz.parsers.parsers.Parsing
-import scalaz.parsers.simple.Simple
+import scalaz.parsers.backend.simple.Simple
 import scalaz.parsers.symbols.SymbolSet
 import scalaz.parsers.escapes.escapeJava
 import scalaz.parsers.parsetree.{WithParseTree, parseTreeToDOT}
@@ -211,7 +211,7 @@ object Main {
   val testParseback: IO[Unit] = {
     import parseback._
     import parseback.compat.cats._
-    import scalaz.parsers.parseback._
+    import scalaz.parsers.backend.parseback._
 
     {
       val p = force(calc[PBWrapper])
