@@ -3,17 +3,21 @@ package scalaz.parsers
 import cats.effect.IO
 
 object refeq {
-  trait RefEq[A] {
-    type Id
-    def id(a: A): IO[Id]
-    def hash(id: Id): Int
-  }
-  object RefEq {
-    def universal[A <: AnyRef]: RefEq[A] { type Id = AnyRef } =
-      new RefEq[A] {
-        type Id = AnyRef
-        def id(a: A): IO[Id] = IO { a }
-        def hash(id: Id): Int = System.identityHashCode(id)
+  sealed class StableName[A]
+  object StableName {
+    private[this] final class Instance[A <: AnyRef](val value: A) extends StableName[A] {
+      override def clone(): AnyRef = this
+
+      override def equals(obj: Any): Boolean = obj match {
+        case that: Instance[_] => that.value eq this.value
+        case _ => false
       }
+
+      override def hashCode(): Int =
+        System.identityHashCode(value)
+    }
+
+    def apply[A <: AnyRef](value: A): IO[StableName[A]] =
+      IO { new Instance[A](value) }
   }
 }

@@ -1,6 +1,5 @@
 package scalaz.parsers
 
 object graphs {
-  type Unique = BigInt
-  final case class Graph[E[_]](nodes: Map[Unique, E[Unique]], id: Unique)
+  final case class Graph[E[_], U](root: U, nodes: Map[U, E[U]])
 }

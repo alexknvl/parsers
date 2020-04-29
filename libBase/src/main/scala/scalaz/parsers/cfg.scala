@@ -1,16 +1,14 @@
 package scalaz.parsers
 
-import cats.{Applicative, Contravariant, Functor, Monoid}
-import cats.data.Const
+import cats.{Applicative, Contravariant, Eval, Foldable, Functor, Monoid, Traverse}
 import cats.syntax.all._
 import cats.instances.list._
 import scalaz.base._
 import scalaz.parsers.parsers.Parsing
-import scalaz.parsers.refeq.RefEq
-import scalaz.parsers.reified.MuRef
+import scalaz.parsers.reified.Recursive
 import scalaz.parsers.symbols.SymbolSet
 import escapes._
-import scalaz.parsers.graphs.{Graph, Unique}
+import scalaz.parsers.graphs.Graph
 
 object cfg {
   sealed abstract class CFG[+S]
@@ -25,20 +23,30 @@ object cfg {
       lazy val value: CFG[S] = x
     }
 
-    implicit def muRef[S]: MuRef[CFG[S]] { type DeRef[X] = CFGF[S, X] } =
-      new MuRef[CFG[S]] {
-        type DeRef[X] = CFGF[S, X]
-        def mapDeRef[F[_], U](cfg: CFG[S])(f: CFG[S] => F[U])(implicit F: Applicative[F]): F[DeRef[U]] =
-          cfg match {
-            case EOF       => F.pure(CFGF.EOF)
-            case Any       => F.pure(CFGF.Any)
-            case Rng(l, u) => F.pure(CFGF.Rng(l, u))
-            case Nam(n, v) => f(v).map(CFGF.Nam(n, _))
-            case Alt(l)    => l.traverse(f).map(CFGF.Alt(_))
-            case Seq(l)    => l.traverse(f).map(CFGF.Seq(_))
+    sealed abstract class PF[+S, +A]
+    object PF {
+      final case object EOF extends PF[Nothing, Nothing]
+      final case object Any extends PF[Nothing, Nothing]
+      final case class Rng[S](lower: S, upper: S) extends PF[S, Nothing]
+      final case class Nam[A](name: String, value: A) extends PF[Nothing, A]
+      final case class Alt[A](list: List[A]) extends PF[Nothing, A]
+      final case class Seq[A](list: List[A]) extends PF[Nothing, A]
+      final case class Del[A](value: A) extends PF[Nothing, A]
+    }
 
-            case cfg : Del[S] => f(cfg.value).map(CFGF.Del(_))
-          }
+    implicit def recursive[S]: Recursive.Aux[CFG[S], PF[S, ?]] =
+      new Recursive[CFG[S]] {
+        type Base[X] = PF[S, X]
+
+        override def project(cfg: CFG[S]): PF[S, CFG[S]] = cfg match {
+          case EOF       => PF.EOF
+          case Any       => PF.Any
+          case Rng(l, u) => PF.Rng(l, u)
+          case Nam(n, v) => PF.Nam(n, v)
+          case Alt(l)    => PF.Alt(l)
+          case Seq(l)    => PF.Seq(l)
+          case cfg : Del[S] => PF.Del(cfg.value)
+        }
       }
 
     implicit def monoid[S]: Monoid[CFG[S]] = new Monoid[CFG[S]] {
@@ -51,28 +59,47 @@ object cfg {
       }
     }
 
-    implicit def refEq[S]: RefEq[CFG[S]] { type Id = AnyRef } =
-      RefEq.universal[CFG[S]]
+    implicit def traversable[S]: Traverse[PF[S, ?]] = new Traverse[PF[S, ?]] {
+      override def traverse[G[_], A, B](cfg: PF[S, A])(f: A => G[B])(implicit G: Applicative[G]): G[PF[S, B]] =
+        cfg match {
+          case PF.EOF       => G.pure(PF.EOF)
+          case PF.Any       => G.pure(PF.Any)
+          case PF.Rng(l, u) => G.pure(PF.Rng(l, u))
+          case PF.Nam(n, v) => f(v).map(PF.Nam(n, _))
+          case PF.Alt(l)    => l.traverse(f).map(PF.Alt(_))
+          case PF.Seq(l)    => l.traverse(f).map(PF.Seq(_))
+          case PF.Del(v)    => f(v).map(PF.Del(_))
+        }
+
+      override def foldLeft[A, B](cfg: PF[S, A], b: B)(f: (B, A) => B): B = cfg match {
+        case PF.EOF       => b
+        case PF.Any       => b
+        case PF.Rng(l, u) => b
+        case PF.Nam(n, v) => f(b, v)
+        case PF.Alt(l)    => l.foldLeft(b)(f)
+        case PF.Seq(l)    => l.foldLeft(b)(f)
+        case PF.Del(v)    => f(b, v)
+      }
+
+      override def foldRight[A, B](cfg: PF[S, A], lb: Eval[B])(f: (A, Eval[B]) => Eval[B]): Eval[B] = cfg match {
+        case PF.EOF       => lb
+        case PF.Any       => lb
+        case PF.Rng(l, u) => lb
+        case PF.Nam(n, v) => f(v, lb)
+        case PF.Alt(l)    => Foldable[List].foldRight(l, lb)(f)
+        case PF.Seq(l)    => Foldable[List].foldRight(l, lb)(f)
+        case PF.Del(v)    => f(v, lb)
+      }
+    }
   }
 
-  sealed abstract class CFGF[+S, +A]
-  object CFGF {
-    final case object EOF extends CFGF[Nothing, Nothing]
-    final case object Any extends CFGF[Nothing, Nothing]
-    final case class Rng[S](lower: S, upper: S) extends CFGF[S, Nothing]
-    final case class Nam[A](name: String, value: A) extends CFGF[Nothing, A]
-    final case class Alt[A](list: List[A]) extends CFGF[Nothing, A]
-    final case class Seq[A](list: List[A]) extends CFGF[Nothing, A]
-    final case class Del[A](value: A) extends CFGF[Nothing, A]
-  }
-
-  def printGraphAsBNF(g: Graph[CFGF[Char, ?]]): String = {
+  def printGraphAsBNF(g: Graph[CFG.PF[Char, ?], BigInt]): String = {
     import scala.collection.{ mutable => mut }
     import java.{ util => ju }
 
-    import CFGF._
+    import CFG.PF._
 
-    def refs[S, A](n: CFGF[S, A]): List[A] = n match {
+    def refs[S, A](n: CFG.PF[S, A]): List[A] = n match {
       case EOF | Any | Rng(_, _) => Nil
       case Nam(_, a) => List(a)
       case Alt(l) => l
@@ -82,10 +109,10 @@ object cfg {
 
     var nextId = 0
 
-    val queue = new ju.ArrayDeque[Unique]
+    val queue = new ju.ArrayDeque[BigInt]
     val visited = mut.Set.empty[BigInt]
     val names = mut.Map.empty[BigInt, String]
-    queue.add(g.id)
+    queue.add(g.root)
 
     while (queue.size() > 0) {
       val id = queue.pop()
@@ -109,7 +136,7 @@ object cfg {
       }
     }
 
-    def printNode(node: CFGF[Char, BigInt], inSeq: Boolean): String =
+    def printNode(node: CFG.PF[Char, BigInt], inSeq: Boolean): String =
       node match {
         case EOF => "EOF"
         case Any => "ANY"
@@ -135,7 +162,7 @@ object cfg {
         case Nam(_, a) => sys.error("impossible")
       }
 
-    def print(id: Unique, lookup: Boolean, inSeq: Boolean): String =
+    def print(id: BigInt, lookup: Boolean, inSeq: Boolean): String =
       if (lookup && names.contains(id)) { names(id) }
       else printNode(g.nodes(id), inSeq)
 

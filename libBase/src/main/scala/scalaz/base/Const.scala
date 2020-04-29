@@ -2,9 +2,7 @@ package scalaz.base
 
 import cats.{Applicative, Contravariant, Eval, Functor, Invariant, Traverse}
 
-final case class Const[A, B](getConst: A) {
-
-}
+final case class Const[A, B](getConst: A)
 object Const {
   implicit def instance[Z]: Functor[Const[Z, ?]] with Contravariant[Const[Z, ?]] with Invariant[Const[Z, ?]] with Traverse[Const[Z, ?]] =
     new Functor[Const[Z, ?]] with Contravariant[Const[Z, ?]] with Invariant[Const[Z, ?]] with Traverse[Const[Z, ?]] {

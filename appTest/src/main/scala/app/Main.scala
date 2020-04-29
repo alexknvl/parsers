@@ -1,19 +1,18 @@
 package app
 
-import cats.{Applicative, Functor, Invariant}
+import cats.Invariant
 import cats.data.NonEmptyList
 import cats.effect.IO
+import cats.instances.list._
 import cats.syntax.all._
-import cats.instances.char._
-import parseback.LineStream
 import scalaz.base._
-import scalaz.parsers.cfg.{CFG, CFGP, printGraphAsBNF}
-import scalaz.parsers.reified.reify
-import scalaz.parsers.parsers.Parsing
 import scalaz.parsers.backend.simple.Simple
-import scalaz.parsers.symbols.SymbolSet
+import scalaz.parsers.cfg.{CFGP, printGraphAsBNF}
 import scalaz.parsers.escapes.escapeJava
+import scalaz.parsers.parsers.Parsing
 import scalaz.parsers.parsetree.{WithParseTree, parseTreeToDOT}
+import scalaz.parsers.reified.toGraph
+import scalaz.parsers.symbols.SymbolSet
 
 object Main {
   //\\ First we define a bunch of character sets.
@@ -137,7 +136,7 @@ object Main {
     val cfg = calc[CFGP[Char, ?]]
 
     for {
-      graph <- reify(cfg.get)
+      graph <- toGraph(cfg.get)
       bnf = printGraphAsBNF(graph)
       _ <- putStrLn(bnf)
       _ <- putStrLn("\n")
@@ -201,7 +200,7 @@ object Main {
     val cfg = normalizingCalc[CFGP[Char, ?]]
 
     for {
-      graph <- reify(cfg.get)
+      graph <- toGraph(cfg.get)
       bnf = printGraphAsBNF(graph)
       _ <- putStrLn(bnf)
       _ <- putStrLn("\n")
@@ -216,10 +215,16 @@ object Main {
     {
       val p = force(calc[PBWrapper])
       val stream = LineStream[cats.Eval]("(a+12)*(3+5*x)")
-      val \/-(result) = p.apply(stream).value
-      val Some(first /\ rest) = result.uncons
-      assert(rest.isEmpty)
-      putStrLn(HandWrittenShow.expr(first))
+
+      p.apply(stream).value match {
+        case Left(value) =>
+          value.traverse_(s => putStrLn(s.render("hello")))
+
+        case Right(result) =>
+          val Some(first /\ rest) = result.uncons
+          assert(rest.isEmpty)
+          putStrLn(HandWrittenShow.expr(first))
+      }
     }
   }
 
