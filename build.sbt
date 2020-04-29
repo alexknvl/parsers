@@ -3,7 +3,7 @@ autoCompilerPlugins := true
 lazy val common = Seq(
   organization      := "com.alexknvl",
   version           := "0.0.1-SNAPSHOT",
-  scalaVersion      := "2.12.6",
+  scalaVersion      := "2.12.9",
   resolvers ++= Seq(
     Resolver.sonatypeRepo("public"),
     Resolver.sonatypeRepo("releases"),
@@ -43,11 +43,7 @@ lazy val common = Seq(
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   libraryDependencies += "com.lihaoyi" %% "acyclic" % "0.1.7" % "provided",
   addCompilerPlugin("com.lihaoyi" %% "acyclic" % "0.1.7"),
-  scalacOptions += "-P:acyclic:force",
-  libraryDependencies ++= List(
-    compilerPlugin("org.scalaz" %% "scalaz-plugin"   % "0.0.6" cross CrossVersion.full),
-    "org.scalaz" %% "scalaz-plugin-library" % "0.0.6"
-  )
+  scalacOptions += "-P:acyclic:force"
 )
 
 val ParsebackVersion = "0.3"

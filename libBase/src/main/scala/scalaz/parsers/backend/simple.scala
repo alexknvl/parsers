@@ -3,7 +3,7 @@ package scalaz.parsers.backend
 import cats.{Eq, Functor}
 import cats.syntax.all._
 import scalaz.base._
-import scalaz.parsers.parsers.Parsing
+import scalaz.parsers.parsers.ContextFree
 import scalaz.parsers.symbols.SymbolSet
 
 object simple {
@@ -23,8 +23,8 @@ object simple {
       }
     }
 
-    implicit def simpleParsing[S: Eq]: Parsing[Simple[S, ?]] { type Symbol = S } =
-      new Parsing[Simple[S, ?]] {
+    implicit def simpleParsing[S: Eq]: ContextFree[Simple[S, ?]] { type Symbol = S } =
+      new ContextFree[Simple[S, ?]] {
         type Symbol = S
         type F[A] = Simple[S, A]
 

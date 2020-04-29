@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList, State}
 import cats.syntax.all._
 import cats.instances.string._
 import scalaz.base._
-import scalaz.parsers.parsers.Parsing
+import scalaz.parsers.parsers.ContextFree
 import scalaz.parsers.symbols.SymbolSet
 
 object parsetree {
@@ -58,9 +58,9 @@ object parsetree {
   type WithParseTree[F[_], S, A] = WriterT[F, Option[ParseTree[S]], A]
 
   implicit def parsingWithParseTree[G[_], S]
-  (implicit G: Functor[G], PG: Parsing[G] { type Symbol = S }
-  ): Parsing[WithParseTree[G, S, ?]] { type Symbol = S } =
-    new Parsing[WithParseTree[G, S, ?]]  {
+  (implicit G: Functor[G], PG: ContextFree[G] { type Symbol = S }
+  ): ContextFree[WithParseTree[G, S, ?]] { type Symbol = S } =
+    new ContextFree[WithParseTree[G, S, ?]]  {
       type Symbol = S
       type F[A] = WithParseTree[G, S, A]
 

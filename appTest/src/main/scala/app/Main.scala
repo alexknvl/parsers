@@ -4,12 +4,13 @@ import cats.Invariant
 import cats.data.NonEmptyList
 import cats.effect.IO
 import cats.instances.list._
+import cats.instances.char._
 import cats.syntax.all._
 import scalaz.base._
 import scalaz.parsers.backend.simple.Simple
 import scalaz.parsers.cfg.{CFGP, printGraphAsBNF}
 import scalaz.parsers.escapes.escapeJava
-import scalaz.parsers.parsers.Parsing
+import scalaz.parsers.parsers.ContextFree
 import scalaz.parsers.parsetree.{WithParseTree, parseTreeToDOT}
 import scalaz.parsers.reified.toGraph
 import scalaz.parsers.symbols.SymbolSet
@@ -90,7 +91,7 @@ object Main {
   //\\ Think of it as a polymorphic function, returning a record.
   //\\ Or a bunch of mutually recursive polymorphic functions.
   def calc[F[_]]
-  (implicit F: Parsing[F] { type Symbol = Char },
+  (implicit F: ContextFree[F] { type Symbol = Char },
    I: Invariant[F]
   ): F[Expr] = {
     import F._
@@ -145,7 +146,7 @@ object Main {
 
   //\\ Now we define a normalizing grammar.
   def normalizingCalc[F[_]]
-  (implicit F: Parsing[F] { type Symbol = Char },
+  (implicit F: ContextFree[F] { type Symbol = Char },
    I: Invariant[F]
   ): F[Expr] = {
     import F._
@@ -213,7 +214,7 @@ object Main {
     import scalaz.parsers.backend.parseback._
 
     {
-      val p = force(calc[PBWrapper])
+      val p = calc[PBWrapper].force
       val stream = LineStream[cats.Eval]("(a+12)*(3+5*x)")
 
       p.apply(stream).value match {

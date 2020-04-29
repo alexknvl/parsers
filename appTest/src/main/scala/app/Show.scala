@@ -3,7 +3,7 @@ package app
 import cats.Contravariant
 import cats.data.NonEmptyList
 import scalaz.base._
-import scalaz.parsers.parsers.Parsing
+import scalaz.parsers.parsers.ContextFree
 import scalaz.parsers.symbols.SymbolSet
 
 trait Show[A] { A =>
@@ -26,8 +26,8 @@ trait Show[A] { A =>
 object Show {
   def universal[A]: Show[A] = x => x.toString
 
-  implicit val showParsing: Contravariant[Show] with Parsing[Show] { type Symbol = Char } =
-    new Parsing[Show] with Contravariant[Show] {
+  implicit val showParsing: Contravariant[Show] with ContextFree[Show] { type Symbol = Char } =
+    new ContextFree[Show] with Contravariant[Show] {
       type Symbol = Char
       type F[A] = Show[A]
 

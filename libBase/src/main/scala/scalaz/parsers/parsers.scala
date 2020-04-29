@@ -7,7 +7,9 @@ import scalaz.base._
 import scalaz.parsers.symbols.SymbolSet
 
 object parsers {
-  trait Parsing[F[_]] extends ParsingDerived[F] with Syntax {
+  type Token
+
+  trait ContextFree[F[_]] extends ContextFreeDerived[F] with ContextFreeSyntax {
     type Symbol
 
     /** Accepts empty input. */
@@ -31,12 +33,17 @@ object parsers {
 
     def anyOf(r: SymbolSet[Symbol]): F[r.Type]
   }
-
-  object Parsing {
-    def apply[F[_]](implicit F: Parsing[F] { }): Parsing[F] { type Symbol = F.Symbol } = F
+  object ContextFree {
+    def apply[F[_]](implicit F: ContextFree[F] { }): ContextFree[F] { type Symbol = F.Symbol } = F
   }
 
-  trait ParsingDerived[F[_]] { self: Parsing[F] =>
+  trait ContextSensitive[F[_]] {
+    type Token[_]
+    def capture[A](fa: F[A]): F[Token[A]]
+    def uncapture[A](fa: F[Token[A]]): F[A]
+  }
+
+  trait ContextFreeDerived[F[_]] { self: ContextFree[F] =>
     def unit: F[Unit] = pure(())
 
     def iso[A, B](fa: F[A])(f: Iso[A, B])(implicit I: Invariant[F]): F[B] =
@@ -72,7 +79,7 @@ object parsers {
       iso(opt(sepBy1(S, A)))(Separated.iso)
   }
 
-  trait Syntax {
+  trait ContextFreeSyntax {
     implicit def toParsingOps[F[_], A](A: F[A]): ToParsingOps[F, A] = new ToParsingOps(A)
     implicit def toLazyParsingOps[F[_], A](A: => F[A]): ToLazyParsingOps[F, A] = new ToLazyParsingOps(A)
 
@@ -80,10 +87,10 @@ object parsers {
     implicit def toInvParsingOps2[F[_], A, B](A: F[A /\ B]) = new ToInvParsingOps2(A)
     implicit def toInvParsingOps3_1[F[_], A, B, C](A: F[(A /\ B) /\ C]) = new ToInvParsingOps3_1(A)
   }
-  object syntax extends Syntax
+  object syntax extends ContextFreeSyntax
 
   final class ToParsingOps[F[_], A](val A: F[A]) extends AnyVal {
-    type PF = Parsing[F]
+    type PF = ContextFree[F]
 
     def @: (name: String)(implicit F: PF): F[A] = F.rule(name, A)
 
@@ -102,26 +109,26 @@ object parsers {
   }
 
   final class ToLazyParsingOps[F[_], A](A: => F[A]) {
-    def | [B](B: => F[B])(implicit F: Parsing[F]): F[A \/ B] =
+    def | [B](B: => F[B])(implicit F: ContextFree[F]): F[A \/ B] =
       F.alt(F.delay(A), F.delay(B))
   }
 
   final class ToInvParsingOps1[F[_], A](val A: F[A]) {
-    def ^^[Z](f: Inv[A, Z])(implicit F: Parsing[F], FF: Invariant[F]): F[Z] =
+    def ^^[Z](f: Inv[A, Z])(implicit F: ContextFree[F], FF: Invariant[F]): F[Z] =
       FF.imap(A)(f.to)(f.from)
-    def ^^[Z](f: Iso[A, Z])(implicit F: Parsing[F], FF: Invariant[F]): F[Z] =
+    def ^^[Z](f: Iso[A, Z])(implicit F: ContextFree[F], FF: Invariant[F]): F[Z] =
       FF.imap(A)(f.to)(f.from)
   }
   final class ToInvParsingOps2[F[_], A, B](val A: F[A /\ B]) {
-    def ^^[Z](f: Inv[(A, B), Z])(implicit F: Parsing[F], FF: Invariant[F]): F[Z] =
+    def ^^[Z](f: Inv[(A, B), Z])(implicit F: ContextFree[F], FF: Invariant[F]): F[Z] =
       FF.imap(A)(f.to)(f.from)
-    def ^^[Z](f: Iso[(A, B), Z])(implicit F: Parsing[F], FF: Invariant[F]): F[Z] =
+    def ^^[Z](f: Iso[(A, B), Z])(implicit F: ContextFree[F], FF: Invariant[F]): F[Z] =
       FF.imap(A)(f.to)(f.from)
   }
   final class ToInvParsingOps3_1[F[_], A, B, C](val A: F[(A /\ B) /\ C]) {
-    def ^^[Z](f: Inv[(A, B, C), Z])(implicit F: Parsing[F], FF: Invariant[F]): F[Z] =
+    def ^^[Z](f: Inv[(A, B, C), Z])(implicit F: ContextFree[F], FF: Invariant[F]): F[Z] =
       FF.imap(F.iso(A)(tupleIso3_1))(f.to)(f.from)
-    def ^^[Z](f: Iso[(A, B, C), Z])(implicit F: Parsing[F], FF: Invariant[F]): F[Z] =
+    def ^^[Z](f: Iso[(A, B, C), Z])(implicit F: ContextFree[F], FF: Invariant[F]): F[Z] =
       FF.imap(F.iso(A)(tupleIso3_1))(f.to)(f.from)
   }
 

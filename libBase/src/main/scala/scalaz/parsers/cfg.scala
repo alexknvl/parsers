@@ -4,7 +4,7 @@ import cats.{Applicative, Contravariant, Eval, Foldable, Functor, Monoid, Traver
 import cats.syntax.all._
 import cats.instances.list._
 import scalaz.base._
-import scalaz.parsers.parsers.Parsing
+import scalaz.parsers.parsers.ContextFree
 import scalaz.parsers.reified.Recursive
 import scalaz.parsers.symbols.SymbolSet
 import escapes._
@@ -185,8 +185,8 @@ object cfg {
         override def contramap[A, B](fa: CFGP[S, A])(f: B => A): CFGP[S, B] = CFGP(fa.get)
       }
 
-    implicit def cfgParsing[S: Enumerable]: Parsing[CFGP[S, ?]] { type Symbol = S } =
-      new Parsing[CFGP[S, ?]] {
+    implicit def cfgParsing[S: Enumerable]: ContextFree[CFGP[S, ?]] { type Symbol = S } =
+      new ContextFree[CFGP[S, ?]] {
         import CFG._
         type Symbol = S
         type F[A] = CFGP[S, A]
