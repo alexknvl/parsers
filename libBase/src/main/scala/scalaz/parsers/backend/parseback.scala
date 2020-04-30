@@ -3,7 +3,7 @@ package scalaz.parsers.backend
 import _root_.parseback.Parser
 import cats.Functor
 import scalaz.base._
-import scalaz.parsers.parsers.ContextFree
+import scalaz.parsers.grammars.ContextFree
 import scalaz.parsers.symbols.SymbolSet
 
 object parseback {

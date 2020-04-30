@@ -1,5 +1,7 @@
 package scalaz.base
 
+import cats.data.NonEmptyList
+
 abstract class Iso[A, B] { ab =>
   def to(a: A): B
   def from(b: B): A
@@ -122,11 +124,30 @@ object Iso {
       id or iso
   }
 
-  val optionBoolean: Iso[Option[Unit], Boolean] = unsafe(
+  val unitOptionBoolean: Iso[Option[Unit], Boolean] = unsafe(
     { case Some(_) => true; case None => false },
     { case true => Some(()); case false => None })
 
   def optionEither[A]: Iso[Option[A], Either[Unit, A]] = unsafe(
     { case Some(a) => Right(a); case None => Left(()) },
     { case Right(a) => Some(a); case Left(_) => None })
+
+  def nonEmptyList[A]: Iso[(A, List[A]), NonEmptyList[A]] =
+    Iso.unsafe((NonEmptyList.apply[A] _).tupled, x => (x.head, x.tail))
+
+  def list[A]: Iso[Unit \/ (A /\ List[A]), List[A]] = Iso.unsafe(
+    { case -\/(()) => Nil; case \/-(h /\ t) => h :: t },
+    { case x :: xs => \/-(x /\ xs); case Nil => -\/(()) })
+
+  def bool[A]: Iso[Unit \/ Unit, Boolean] = Iso.unsafe[Unit \/ Unit, Boolean]({
+    case -\/(()) => false
+    case \/-(()) => true
+  }, {
+    case false => -\/(())
+    case true  => \/-(())
+  })
+
+  def tupleIso3_1[A, B, C]: Iso[(A /\ B) /\ C, (A, B, C)] = Iso.unsafe(
+    { case ((a, b), c) => (a, b, c) },
+    { case (a, b, c) => ((a, b), c) })
 }

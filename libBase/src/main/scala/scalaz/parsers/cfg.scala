@@ -4,10 +4,10 @@ import cats.{Applicative, Contravariant, Eval, Foldable, Functor, Monoid, Traver
 import cats.syntax.all._
 import cats.instances.list._
 import scalaz.base._
-import scalaz.parsers.parsers.ContextFree
 import scalaz.parsers.reified.Recursive
 import scalaz.parsers.symbols.SymbolSet
 import escapes._
+import scalaz.parsers.grammars.ContextFree
 import scalaz.parsers.graphs.Graph
 
 object cfg {

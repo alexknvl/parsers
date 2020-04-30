@@ -3,7 +3,7 @@ package app
 import cats.Contravariant
 import cats.data.NonEmptyList
 import scalaz.base._
-import scalaz.parsers.parsers.ContextFree
+import scalaz.parsers.grammars.ContextFree
 import scalaz.parsers.symbols.SymbolSet
 
 trait Show[A] { A =>

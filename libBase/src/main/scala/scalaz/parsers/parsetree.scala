@@ -5,7 +5,7 @@ import cats.data.{NonEmptyList, State}
 import cats.syntax.all._
 import cats.instances.string._
 import scalaz.base._
-import scalaz.parsers.parsers.ContextFree
+import scalaz.parsers.grammars.ContextFree
 import scalaz.parsers.symbols.SymbolSet
 
 object parsetree {

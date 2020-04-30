@@ -3,11 +3,20 @@ package scalaz.parsers.backend
 import cats.{Eq, Functor}
 import cats.syntax.all._
 import scalaz.base._
-import scalaz.parsers.parsers.ContextFree
+import scalaz.parsers.grammars.{ContextFree, ContextSensitive}
 import scalaz.parsers.symbols.SymbolSet
 
 object simple {
-  final case class Simple[S, A](runParser: List[S] => List[(List[S], A)])
+  final case class Simple[S, A](runParser: List[S] => List[(List[S], A)]) {
+    def map[B](f: A => B): Simple[S, B] = Simple { ss =>
+      runParser(ss).map { case (r, a) => r -> f(a) }
+    }
+
+    def flatMap[B](f: A => Simple[S, B]): Simple[S, B] =
+      Simple { ss =>
+        runParser(ss).flatMap { case (r, a) => f(a).runParser(r) }
+      }
+  }
 
   implicit class parseAll[A](val p: Simple[Char, A]) extends AnyVal {
     def apply(p: Simple[Char, A], s: String): List[A] = parseAll(s)
@@ -23,8 +32,8 @@ object simple {
       }
     }
 
-    implicit def simpleParsing[S: Eq]: ContextFree[Simple[S, ?]] { type Symbol = S } =
-      new ContextFree[Simple[S, ?]] {
+    implicit def simpleParsing[S: Eq]: ContextSensitive[Simple[S, ?]] { type Symbol = S } =
+      new ContextSensitive[Simple[S, ?]] {
         type Symbol = S
         type F[A] = Simple[S, A]
 
@@ -73,6 +82,21 @@ object simple {
 //          if (s.isEmpty) List(s /\ *)
 //          else Nil
 //        }
+
+        type Token[_]
+        def capture[A, B](fa: F[A])(t: Token[A] => F[B]): F[(A, B)] =
+          Simple { ss =>
+            fa.runParser(ss).flatMap { case (r, a) =>
+              val token = ss.take(ss.length - r.length)
+              t(token.asInstanceOf[Token[A]]).map((a, _)).runParser(r)
+            }
+          }
+        def insert[A](fa: Token[A]): F[Unit] =
+          Simple { ss =>
+            val token = fa.asInstanceOf[List[S]]
+            if (ss.startsWith(token)) List(ss.drop(token.length) -> (()))
+            else Nil
+          }
       }
   }
 }

@@ -10,7 +10,7 @@ import scalaz.base._
 import scalaz.parsers.backend.simple.Simple
 import scalaz.parsers.cfg.{CFGP, printGraphAsBNF}
 import scalaz.parsers.escapes.escapeJava
-import scalaz.parsers.parsers.ContextFree
+import scalaz.parsers.grammars.{ContextFree, ContextSensitive}
 import scalaz.parsers.parsetree.{WithParseTree, parseTreeToDOT}
 import scalaz.parsers.reified.toGraph
 import scalaz.parsers.symbols.SymbolSet
@@ -24,6 +24,7 @@ object Main {
   val Multiply      = SymbolSet.Subset(SymbolSet.Ascii)(x => x == '*')
   val Whitespace    = SymbolSet.Subset(SymbolSet.Ascii)(_.isWhitespace)
 
+  type Ascii = SymbolSet.Ascii.Type
   type LetterOrDigit = LetterOrDigit.Type
   type Digit         = Digit.Type
   type Letter        = Letter.Type
@@ -234,7 +235,55 @@ object Main {
   def pureMain: IO[Unit] =
     testSimpleAndShow *> testParseTrees *> testBNF *>
     testNormalizingSimpleAndShow *> testNormalizingParseTrees *> testNormalizingBNF *>
-    testParseback
+    testParseback *> testSimpleAndShowXml
+
+  val testSimpleAndShowXml: IO[Unit] = {
+    val p = xml.grammar.compile[Simple[Char, ?]]
+    val List(tree) = p.parseAll("<ab><d>   </d></ab>")
+
+    putStrLn(tree.toString) *>
+      putStrLn("\n")
+  }
+
+  object xml {
+    final case class Id(head: Letter, tail: List[LetterOrDigit])
+
+    sealed abstract class Xml
+    final case class Text(value: List[Unit]) extends Xml
+    final case class Elem(name: Id, body: Option[Xml]) extends Xml
+
+    val idIso: Iso[Letter /\ List[LetterOrDigit], Id] =
+      Iso.unsafe((Id.apply _).tupled, x => Id.unapply(x).get)
+
+    val textIso: Iso[List[Unit], Text] =
+      Iso.unsafe(Text, _.value)
+    val elemIso: Iso[Id /\ Option[Xml], Elem] =
+      Iso.unsafe({ case (a, b) => Elem(a, b) }, x => (x.name, x.body))
+    val xmlIso: Iso[Elem \/ Text, Xml] =
+      Iso.unsafe({ case Left(e) => e; case Right(e) => e }, { case t: Text => Right(t); case t: Elem => Left(t)})
+
+    def grammar: ContextSensitive.Initial[Char, Xml] = {
+      import ContextSensitive.Initial
+      import ContextSensitive.Initial._
+
+      val ascii: Initial[Char, SymbolSet.Ascii.Type]  = anyOf(SymbolSet.Ascii)
+      val letter: Initial[Char, Letter]               = "letter"         @: anyOf(Letter)
+      val letterOrDigit: Initial[Char, LetterOrDigit] = "letterOrDigit"  @: anyOf(LetterOrDigit)
+
+      val id: Initial[Char, Id] = "id" @: { letter ~ letterOrDigit.* ^^ idIso }
+
+      val text: Initial[Char, Text] = sym(' ').many ^^ textIso
+
+      lazy val elem: Initial[Char, Elem] = (sym('<') ~>
+        id.capture { id =>
+          sym('>') ~> xml.opt <~ sym('<') <~ sym('/') <~ insert(id) <~ sym('>')
+        }) ^^ elemIso
+
+      lazy val xml = "xml" @: { (elem | text) ^^ xmlIso }
+
+      xml
+    }
+  }
 
   def main(args: Array[String]): Unit =
     pureMain.unsafeRunSync()
